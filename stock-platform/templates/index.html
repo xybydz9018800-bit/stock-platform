@@ -1,0 +1,438 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>A股操盘平台 - 热点波段操作系统</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
+</head>
+<body>
+    <!-- 顶部导航 -->
+    <header class="header">
+        <div class="header-left">
+            <h1 class="logo">📊 A股操盘平台</h1>
+            <span class="tagline">热点波段 · 主力分析 · 智能风控</span>
+        </div>
+        <div class="header-center" id="market-overview">
+            <span class="index-item sh">上证 <strong id="idx-sh">--</strong></span>
+            <span class="index-item sz">深证 <strong id="idx-sz">--</strong></span>
+            <span class="index-item cyb">创业板 <strong id="idx-cyb">--</strong></span>
+        </div>
+        <div class="header-right">
+            <span class="risk-badge" id="risk-badge">风险: --</span>
+            <span class="time" id="current-time">--</span>
+            <button class="btn btn-sm" onclick="refreshAll()">刷新</button>
+        </div>
+    </header>
+
+    <!-- 预警条 -->
+    <div class="alert-bar" id="alert-bar" style="display:none">
+        <span class="alert-icon">⚠️</span>
+        <span id="alert-message"></span>
+    </div>
+
+    <!-- 主内容区 -->
+    <div class="main-container">
+        <div class="sidebar">
+            <nav class="nav-menu">
+                <a href="#" class="nav-item active" data-tab="overview">📋 总览面板</a>
+                <a href="#" class="nav-item" data-tab="pool">🎯 股票池</a>
+                <a href="#" class="nav-item" data-tab="vip">💎 VIP持仓</a>
+                <a href="#" class="nav-item" data-tab="recommend">📌 每日推荐</a>
+                <a href="#" class="nav-item" data-tab="analysis">🔍 深度分析</a>
+                <a href="#" class="nav-item" data-tab="risk">🛡️ 风险控制</a>
+                <a href="#" class="nav-item" data-tab="sim">🎮 模拟交易</a>
+                <a href="#" class="nav-item" data-tab="events">🚨 突发事件</a>
+                <a href="#" class="nav-item" data-tab="ths">📱 同花顺同步</a>
+                <a href="#" class="nav-item" data-tab="trades">📝 交易记录</a>
+                <a href="#" class="nav-item" data-tab="report">📊 绩效报告</a>
+                <a href="#" class="nav-item" data-tab="settings">⚙️ 系统设置</a>
+            </nav>
+        </div>
+
+        <div class="content">
+            <!-- 总览面板 -->
+            <div class="tab-content active" id="tab-overview">
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-label">股票池</div>
+                        <div class="stat-value" id="stat-pool-total">--</div>
+                        <div class="stat-sub">启动 <span id="stat-early">--</span> | 主升 <span id="stat-mid">--</span></div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">累计交易</div>
+                        <div class="stat-value" id="stat-trades">--</div>
+                        <div class="stat-sub" id="stat-winrate">--</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">累计收益</div>
+                        <div class="stat-value" id="stat-profit" style="color:var(--up)">--</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">风险评分</div>
+                        <div class="stat-value" id="stat-risk" style="color:var(--warning)">--</div>
+                    </div>
+                </div>
+
+                <div class="charts-row">
+                    <div class="chart-panel">
+                        <h3>持仓盈亏分布</h3>
+                        <div id="chart-pl-distribution" class="chart-box"></div>
+                    </div>
+                    <div class="chart-panel">
+                        <h3>板块分布</h3>
+                        <div id="chart-sector-pie" class="chart-box"></div>
+                    </div>
+                </div>
+
+                <div class="charts-row">
+                    <div class="chart-panel full-width">
+                        <h3>月度收益曲线</h3>
+                        <div id="chart-monthly-profit" class="chart-box" style="height:300px"></div>
+                    </div>
+                </div>
+
+                <div class="panel">
+                    <h3>今日热点板块</h3>
+                    <div id="hot-sectors-list" class="hot-list"></div>
+                </div>
+
+                <div class="panel">
+                    <h3>预警信息</h3>
+                    <div id="alerts-list"></div>
+                </div>
+            </div>
+
+            <!-- 股票池面板 -->
+            <div class="tab-content" id="tab-pool">
+                <div class="panel-header">
+                    <h2>🎯 三层股票池体系</h2>
+                    <div>
+                        <button class="btn btn-primary" onclick="analyzeLeaders()">🐉 龙头分类</button>
+                        <button class="btn" onclick="buildPool()">🔄 精选建池</button>
+                        <button class="btn" onclick="optimizePool()">🔧 优化扫描</button>
+                    </div>
+                </div>
+
+                <!-- 龙头分析面板 -->
+                <div id="leader-panel" class="leader-panel" style="display:none;">
+                    <div class="leader-summary" id="leader-summary"></div>
+                    <div class="leader-results" id="leader-results"></div>
+                </div>
+
+                <!-- 池子切换标签 -->
+                <div class="pool-tabs">
+                    <button class="pool-tab active" data-pool-tab="buy">📥 买入池</button>
+                    <button class="pool-tab" data-pool-tab="liquidate">🔔 清仓池</button>
+                    <button class="pool-tab" data-pool-tab="eliminated">🗑️ 淘汰池</button>
+                </div>
+
+                <!-- 买入池 -->
+                <div class="pool-tab-content active" id="pool-tab-buy">
+                    <div class="pool-sections">
+                        <div class="pool-section">
+                            <h3 class="section-title early">🚀 刚启动主升浪 (<span id="early-count">--</span>)</h3>
+                            <div id="early-stage-pool" class="stock-grid"></div>
+                        </div>
+                        <div class="pool-section">
+                            <h3 class="section-title mid">📈 主升浪运行中 (<span id="mid-count">--</span>)</h3>
+                            <div id="mid-stage-pool" class="stock-grid"></div>
+                        </div>
+                    </div>
+
+                    <div class="add-stock-panel">
+                        <h4>➕ 添加股票（自动触发淘汰机制）</h4>
+                        <input type="text" id="add-code" placeholder="输入6位代码" maxlength="6">
+                        <input type="text" id="add-sector" placeholder="板块(可选)">
+                        <button class="btn btn-primary" onclick="addToPool()">智能加入</button>
+                        <button class="btn btn-sm" onclick="estimateScore()">预估评分</button>
+                        <span class="hint">满20只时自动淘汰最低分股</span>
+                    </div>
+
+                    <div id="elimination-result" style="margin-top:12px;"></div>
+                </div>
+
+                <!-- 清仓池 -->
+                <div class="pool-tab-content" id="pool-tab-liquidate">
+                    <div class="panel-header">
+                        <h3>🔔 清仓候选池</h3>
+                        <span style="color:var(--text-muted);">触发卖出信号等待清仓确认的股票</span>
+                    </div>
+                    <div id="liquidate-pool-list"></div>
+                </div>
+
+                <!-- 淘汰池 -->
+                <div class="pool-tab-content" id="pool-tab-eliminated">
+                    <div class="panel-header">
+                        <h3>🗑️ 历史淘汰池</h3>
+                        <span style="color:var(--text-muted);">记录时间/价格/原因，用于策略优化复盘</span>
+                    </div>
+                    <div id="eliminated-stats" class="eliminated-stats"></div>
+                    <div class="table-container">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>代码</th><th>名称</th><th>入选日期</th><th>入选价</th>
+                                    <th>淘汰日期</th><th>淘汰价</th><th>评分</th>
+                                    <th>淘汰原因</th><th>替换为</th><th>复盘</th>
+                                </tr>
+                            </thead>
+                            <tbody id="eliminated-table-body"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- VIP持仓面板 -->
+            <div class="tab-content" id="tab-vip">
+                <div class="panel-header">
+                    <h2>💎 VIP持仓池</h2>
+                    <div>
+                        <button class="btn" onclick="loadVipHoldings()">🔄 刷新行情</button>
+                        <button class="btn btn-primary" onclick="generateVipSuggestions()">🤖 AI分析建议</button>
+                    </div>
+                </div>
+
+                <!-- VIP总览 -->
+                <div class="vip-summary" id="vip-summary"></div>
+
+                <!-- 添加VIP持仓 -->
+                <div class="vip-add-panel">
+                    <h4>➕ 手动添加持仓</h4>
+                    <div class="vip-add-form">
+                        <input type="text" id="vip-code" placeholder="股票代码" maxlength="6">
+                        <input type="number" id="vip-price" placeholder="建仓价格" step="0.01">
+                        <input type="number" id="vip-shares" placeholder="持股数量(股)">
+                        <input type="text" id="vip-entry-date" placeholder="建仓日期 YYYY-MM-DD">
+                        <input type="number" id="vip-stop-loss" placeholder="止损价(可选)" step="0.01">
+                        <input type="number" id="vip-take-profit" placeholder="止盈价(可选)" step="0.01">
+                        <button class="btn btn-primary" onclick="addVipHolding()">确认添加</button>
+                    </div>
+                </div>
+
+                <!-- VIP持仓列表 -->
+                <div class="vip-holdings-list" id="vip-holdings-list"></div>
+
+                <!-- VIP历史 -->
+                <div class="panel" style="margin-top:20px">
+                    <div class="panel-header">
+                        <h3>📜 历史交易</h3>
+                        <button class="btn btn-sm" onclick="loadVipHistory()">加载</button>
+                    </div>
+                    <div id="vip-history"></div>
+                </div>
+            </div>
+
+            <!-- 每日推荐面板 -->
+            <div class="tab-content" id="tab-recommend">
+                <div class="panel-header">
+                    <h2>📌 每日推荐 (盘前 9:28)</h2>
+                    <button class="btn btn-primary" onclick="generateRecommendations()">🔄 生成今日推荐</button>
+                </div>
+
+                <div id="daily-recs" class="recommendations-list"></div>
+
+                <div class="panel" style="margin-top:20px">
+                    <h3>推荐追踪记录</h3>
+                    <div id="rec-history"></div>
+                </div>
+            </div>
+
+            <!-- 深度分析面板 -->
+            <div class="tab-content" id="tab-analysis">
+                <div class="panel-header">
+                    <h2>🔍 深度分析</h2>
+                    <div>
+                        <input type="text" id="analysis-code" placeholder="输入股票代码" maxlength="6">
+                        <button class="btn btn-primary" onclick="runDeepAnalysis()">分析</button>
+                    </div>
+                </div>
+
+                <div id="analysis-result" class="analysis-result">
+                    <p class="placeholder">输入股票代码进行深度分析，包括：主力阶段、真假突破、资金流向、技术指标等</p>
+                </div>
+            </div>
+
+            <!-- 风险控制面板 -->
+            <div class="tab-content" id="tab-risk">
+                <div class="panel-header">
+                    <h2>🛡️ 风险控制中心</h2>
+                    <button class="btn" onclick="checkRisk()">🔄 刷新风险数据</button>
+                </div>
+
+                <div class="risk-panels">
+                    <div class="risk-panel" id="risk-overview"></div>
+                    <div class="risk-panel" id="risk-events"></div>
+                    <div class="risk-panel" id="position-risk"></div>
+                </div>
+
+                <div class="panel">
+                    <h3>持仓监控</h3>
+                    <div id="holdings-monitor"></div>
+                </div>
+            </div>
+
+            <!-- 模拟交易面板 -->
+            <div class="tab-content" id="tab-sim">
+                <div class="panel-header">
+                    <h2>🎮 模拟交易池</h2>
+                    <div>
+                        <button class="btn btn-primary" onclick="simPickAndBuy()">📌 今日选股买入</button>
+                        <button class="btn" onclick="simCheckHoldings()">🔍 检查止盈止损</button>
+                        <button class="btn" onclick="loadSimTrades()">🔄 刷新</button>
+                    </div>
+                </div>
+
+                <!-- 规则说明 -->
+                <div class="sim-rules" style="margin-bottom:16px;padding:12px;background:var(--bg-card);border-radius:8px;border:1px solid var(--border);font-size:13px;color:var(--text-secondary);">
+                    <strong>📐 模拟交易规则:</strong>
+                    每日从买入池选1只刚启动(early)+1只主升浪中(mid)，以当前价模拟买入1000股 |
+                    止损: 亏损-5%立即卖出 | 
+                    移动止损: 盈利超6%后，从最高点回撤5%卖出 | 
+                    持仓超20天强制平仓
+                </div>
+
+                <!-- 今日选股 -->
+                <div id="sim-today-picks"></div>
+
+                <!-- 持仓 -->
+                <h4 style="margin-top:16px;margin-bottom:8px;">📦 当前持仓</h4>
+                <div id="sim-holdings"></div>
+
+                <!-- 统计 -->
+                <h4 style="margin-top:16px;margin-bottom:8px;">📊 交易统计</h4>
+                <div id="sim-stats"></div>
+
+                <!-- 历史 -->
+                <h4 style="margin-top:16px;margin-bottom:8px;">📜 历史交易</h4>
+                <div id="sim-history"></div>
+            </div>
+
+            <!-- 突发事件面板 -->
+            <div class="tab-content" id="tab-events">
+                <div class="panel-header">
+                    <h2>🚨 突发事件追踪</h2>
+                    <button class="btn btn-primary" onclick="loadEvents()">🔄 刷新</button>
+                </div>
+
+                <div class="event-severity-bar" id="event-severity-bar" style="margin-bottom:16px;"></div>
+
+                <div class="event-impact-section" id="event-pool-impact" style="margin-bottom:16px;display:none;">
+                    <h4 style="margin-bottom:8px;">⚡ 对持仓影响</h4>
+                </div>
+
+                <div id="event-filters" style="margin-bottom:12px;display:flex;gap:8px;flex-wrap:wrap;">
+                    <button class="btn btn-sm event-filter active" onclick="filterEvents('all', this)">全部</button>
+                    <button class="btn btn-sm event-filter" onclick="filterEvents('critical', this)">🔴 极端</button>
+                    <button class="btn btn-sm event-filter" onclick="filterEvents('high', this)">🟠 重要</button>
+                    <button class="btn btn-sm event-filter" onclick="filterEvents('medium', this)">🟡 一般</button>
+                    <button class="btn btn-sm event-filter" onclick="filterEvents('policy', this)">政策</button>
+                    <button class="btn btn-sm event-filter" onclick="filterEvents('industry', this)">行业</button>
+                    <button class="btn btn-sm event-filter" onclick="filterEvents('company', this)">公司</button>
+                </div>
+
+                <div id="event-timeline"></div>
+            </div>
+
+            <!-- 同花顺同步面板 -->
+            <div class="tab-content" id="tab-ths">
+                <div class="panel-header">
+                    <h2>📱 同花顺自选股同步 · AI监测池</h2>
+                    <div>
+                        <button class="btn btn-primary" onclick="syncThsPool()">🔄 同步同花顺自选股</button>
+                        <span id="ths-sync-status" style="margin-left:12px;font-size:13px;color:var(--text-muted);"></span>
+                    </div>
+                </div>
+
+                <div class="sim-rules" style="margin-bottom:16px;padding:12px;background:var(--bg-card);border-radius:8px;border:1px solid var(--border);font-size:13px;color:var(--text-secondary);">
+                    <strong>📋 说明:</strong> 自动从电脑上的同花顺远航版读取自选股列表，同步到平台的AI监测池中。当你用同花顺添加新股后，点「同步」即可更新。
+                </div>
+
+                <div id="ths-stats-bar" style="margin-bottom:12px;"></div>
+                <div id="ths-pool-list"></div>
+            </div>
+
+            <!-- 交易记录面板 -->
+            <div class="tab-content" id="tab-trades">
+                <div class="panel-header">
+                    <h2>📝 交易记录</h2>
+                </div>
+
+                <div class="trade-stats-bar" id="trade-stats-bar"></div>
+
+                <div class="table-container">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>代码</th><th>名称</th><th>买入日期</th><th>买入价</th>
+                                <th>卖出日期</th><th>卖出价</th><th>盈亏%</th>
+                                <th>持仓天数</th><th>卖出原因</th>
+                            </tr>
+                        </thead>
+                        <tbody id="trades-table-body"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- 绩效报告面板 -->
+            <div class="tab-content" id="tab-report">
+                <div class="panel-header">
+                    <h2>📊 绩效报告</h2>
+                </div>
+                <div id="performance-report"></div>
+            </div>
+
+            <!-- 系统设置面板 -->
+            <div class="tab-content" id="tab-settings">
+                <div class="panel-header">
+                    <h2>⚙️ 系统参数配置</h2>
+                </div>
+                <div class="settings-form" id="settings-form"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 实时行情弹窗 -->
+    <div class="quote-modal-overlay" id="quote-modal" style="display:none;">
+        <div class="quote-modal">
+            <div class="quote-modal-header">
+                <h2 id="qm-name">--</h2>
+                <div>
+                    <button class="btn btn-sm" onclick="toggleQuoteRefresh()" id="qm-refresh-btn">⏸ 暂停刷新</button>
+                    <button class="btn btn-sm" onclick="closeQuoteModal()">✕ 关闭</button>
+                </div>
+            </div>
+            <div class="quote-modal-body">
+                <div class="qm-price-row">
+                    <span class="qm-price" id="qm-price">--</span>
+                    <span class="qm-change" id="qm-change">--</span>
+                    <span class="qm-change-pct" id="qm-change-pct">--</span>
+                </div>
+                <div class="qm-info-grid">
+                    <div><span class="lbl">今开</span><span id="qm-open">--</span></div>
+                    <div><span class="lbl">昨收</span><span id="qm-close">--</span></div>
+                    <div><span class="lbl">最高</span><span id="qm-high" style="color:var(--up)">--</span></div>
+                    <div><span class="lbl">最低</span><span id="qm-low" style="color:var(--down)">--</span></div>
+                    <div><span class="lbl">成交量</span><span id="qm-volume">--</span></div>
+                    <div><span class="lbl">成交额</span><span id="qm-amount">--</span></div>
+                    <div><span class="lbl">换手率</span><span id="qm-turnover">--</span></div>
+                    <div><span class="lbl">量比</span><span id="qm-vol-ratio">--</span></div>
+                    <div><span class="lbl">振幅</span><span id="qm-amplitude">--</span></div>
+                    <div><span class="lbl">PE(TTM)</span><span id="qm-pe">--</span></div>
+                    <div><span class="lbl">总市值</span><span id="qm-mcap">--</span></div>
+                    <div><span class="lbl">流通市值</span><span id="qm-float-mcap">--</span></div>
+                    <div><span class="lbl">PB</span><span id="qm-pb">--</span></div>
+                    <div><span class="lbl">涨停价</span><span id="qm-limit-up" style="color:var(--up)">--</span></div>
+                    <div><span class="lbl">跌停价</span><span id="qm-limit-down" style="color:var(--down)">--</span></div>
+                </div>
+                <div class="qm-chart-container">
+                    <div id="qm-kline-chart" style="width:100%;height:300px;"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/js/app.js"></script>
+</body>
+</html>
